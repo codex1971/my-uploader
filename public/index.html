@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CODEXBD | Pure Transmission Log</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Share Tech Mono', 'Orbitron', 'Rajdhani', monospace;
+            padding: 1.5rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* scanning lines effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 255, 0.02) 0px,
+                rgba(0, 255, 255, 0.02) 2px,
+                transparent 2px,
+                transparent 6px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* main HUD container */
+        .hud-container {
+            width: 100%;
+            max-width: 920px;
+            background: rgba(8, 18, 28, 0.65);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            padding: 1.8rem;
+            box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.2),
+                        0 0 0 6px rgba(0, 20, 30, 0.6),
+                        0 20px 40px rgba(0,0,0,0.5),
+                        inset 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* corner decorations */
+        .hud-container::before {
+            content: ">";
+            position: absolute;
+            bottom: 15px;
+            right: 25px;
+            font-size: 12px;
+            color: cyan;
+            opacity: 0.4;
+            font-family: monospace;
+            pointer-events: none;
+        }
+        .hud-container::after {
+            content: "⤬";
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 14px;
+            color: #0ff;
+            opacity: 0.3;
+        }
+
+        /* header */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 2px solid cyan;
+            padding-bottom: 0.6rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .title-section {
+            display: flex;
+            gap: 1rem;
+            align-items: baseline;
+            flex-wrap: wrap;
+        }
+        .system-id {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #aaffff, #0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 5px cyan;
+        }
+        .status-led {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 8px #0f0;
+            animation: pulseLed 1.5s infinite;
+        }
+        .status-text {
+            color: #0ff;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            background: rgba(0,255,255,0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .time-stamp {
+            font-family: 'Share Tech Mono', monospace;
+            color: #8bcbff;
+            font-size: 0.8rem;
+            background: #0a1424;
+            padding: 0.2rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid cyan;
+        }
+
+        /* MESSAGE LOG - now shows ONLY user sent transmissions */
+        .message-log {
+            background: rgba(0, 10, 20, 0.55);
+            border-radius: 1.2rem;
+            padding: 1.2rem;
+            height: 340px;
+            overflow-y: auto;
+            margin-bottom: 1.8rem;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+            scroll-behavior: smooth;
+        }
+        .message-log::-webkit-scrollbar {
+            width: 5px;
+        }
+        .message-log::-webkit-scrollbar-track {
+            background: #07111f;
+            border-radius: 10px;
+        }
+        .message-log::-webkit-scrollbar-thumb {
+            background: cyan;
+            border-radius: 10px;
+        }
+        .msg-item {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+            border-left: 3px solid cyan;
+            padding-left: 0.8rem;
+            animation: fadeSlideUp 0.2s ease;
+        }
+        .msg-icon {
+            font-size: 1.2rem;
+            filter: drop-shadow(0 0 2px cyan);
+        }
+        .msg-content {
+            flex: 1;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.9rem;
+            color: #caf2ff;
+            word-break: break-word;
+        }
+        .msg-time {
+            font-size: 0.65rem;
+            color: #3e7e9e;
+            font-family: monospace;
+            margin-top: 4px;
+        }
+        .file-meta {
+            background: #0a1a2a;
+            border-radius: 12px;
+            padding: 0.2rem 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            border: 1px solid #2f6f8f;
+        }
+        .file-meta span {
+            font-weight: bold;
+            color: #7df9ff;
+        }
+
+        /* input panel */
+        .input-panel {
+            background: rgba(0, 20, 30, 0.7);
+            border-radius: 1.6rem;
+            padding: 1.2rem;
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        .text-input-area {
+            margin-bottom: 1.2rem;
+        }
+        .neon-label {
+            display: block;
+            color: #0ff;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .futuristic-input {
+            width: 100%;
+            background: #05121e;
+            border: 1px solid #0ff;
+            border-radius: 24px;
+            padding: 0.9rem 1.2rem;
+            color: #b3f0ff;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+            box-shadow: 0 0 5px rgba(0,255,255,0.2);
+        }
+        .futuristic-input:focus {
+            border-color: #ff66cc;
+            box-shadow: 0 0 12px rgba(0,255,255,0.6);
+            background: #061a2a;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .hud-btn {
+            background: rgba(0, 30, 40, 0.7);
+            border: 1px solid #0ff;
+            color: #0ff;
+            padding: 0.6rem 1.4rem;
+            border-radius: 40px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 500;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(2px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hud-btn:hover {
+            background: cyan;
+            color: #021018;
+            box-shadow: 0 0 12px cyan;
+            border-color: white;
+            text-shadow: none;
+        }
+        .primary-btn {
+            background: linear-gradient(145deg, #00a6c4, #005f7a);
+            color: white;
+            border-color: #9effff;
+            box-shadow: 0 0 6px cyan;
+        }
+        .primary-btn:hover {
+            background: cyan;
+            color: #000;
+            transform: scale(0.98);
+        }
+        .file-status {
+            font-size: 0.7rem;
+            color: #7df9ff;
+            background: #0a142c;
+            border-radius: 24px;
+            padding: 0.3rem 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-left: 3px solid cyan;
+        }
+        .hidden-file-input {
+            display: none;
+        }
+
+        @keyframes pulseLed {
+            0% { opacity: 0.4; box-shadow: 0 0 2px #0f0; }
+            100% { opacity: 1; box-shadow: 0 0 10px #0f0; }
+        }
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (max-width: 600px) {
+            .hud-container {
+                padding: 1rem;
+            }
+            .system-id {
+                font-size: 1.3rem;
+            }
+            .hud-btn {
+                padding: 0.4rem 1rem;
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="hud-container">
+    <div class="hud-header">
+        <div class="title-section">
+            <span class="system-id">◈ CODEXBD TERMINAL ◈</span>
+            <span class="status-text"><span class="status-led"></span> LINK ACTIVE</span>
+        </div>
+        <div class="time-stamp" id="liveTimestamp">00:00:00 UTC</div>
+    </div>
+
+    <!-- DISPLAY AREA: এখানে শুধু আপনি যা SEND করবেন তা দেখা যাবে। অন্য কোনো লেখা থাকবে না। -->
+    <div class="message-log" id="messageLog">
+        <!-- Initially empty - no system messages, no boot text, nothing except user transmissions -->
+    </div>
+
+    <!-- INPUT SECTION -->
+    <div class="input-panel">
+        <div class="text-input-area">
+            <div class="neon-label">✧ ENCRYPTED TRANSMISSION ✧</div>
+            <input type="text" id="messageInput" class="futuristic-input" placeholder="Type your message..." autocomplete="off">
+        </div>
+
+        <div class="action-buttons">
+            <div class="btn-group">
+                <button id="filePickBtn" class="hud-btn">📂 PICK ANY FILE</button>
+                <button id="sendBtn" class="hud-btn primary-btn">⚡ SEND NOW</button>
+            </div>
+            <div id="filePreviewStatus" class="file-status">
+                <span>📁</span> <span id="fileNameDisplay">No file attached</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- hidden file input for any file type -->
+<input type="file" id="fileInputElement" class="hidden-file-input" multiple="false">
+
+<script>
+    // DOM elements
+    const messageLog = document.getElementById('messageLog');
+    const messageInput = document.getElementById('messageInput');
+    const filePickBtn = document.getElementById('filePickBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const fileInput = document.getElementById('fileInputElement');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const liveTimestampSpan = document.getElementById('liveTimestamp');
+
+    // Currently selected file (any type allowed)
+    let selectedFile = null;
+
+    // Get current timestamp (UTC style)
+    function getTimestamp() {
+        const now = new Date();
+        return now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' }) + " UTC";
+    }
+
+    // Update live clock
+    function updateLiveClock() {
+        const now = new Date();
+        liveTimestampSpan.innerText = now.toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' }) + " UTC";
+    }
+    setInterval(updateLiveClock, 1000);
+    updateLiveClock();
+
+    // THIS FUNCTION ADDS ONLY USER TRANSMISSIONS TO THE DISPLAY.
+    // No system messages, no staging messages, no boot logs.
+    function addTransmissionLog(icon, content) {
+        const logDiv = document.createElement('div');
+        logDiv.className = 'msg-item';
+        const timeStr = getTimestamp();
+        logDiv.innerHTML = `
+            <div class="msg-icon">${icon}</div>
+            <div class="msg-content">
+                <div>${content}</div>
+                <div class="msg-time">[ ${timeStr} ]</div>
+            </div>
+        `;
+        messageLog.appendChild(logDiv);
+        // Auto-scroll to show latest transmission
+        messageLog.scrollTop = messageLog.scrollHeight;
+        // Keep log size manageable (max 100 entries)
+        if (messageLog.children.length > 100) {
+            messageLog.removeChild(messageLog.children[0]);
+        }
+    }
+
+    // Format file details for display
+    function getFileDescriptor(file) {
+        if (!file) return "";
+        const sizeKB = (file.size / 1024).toFixed(1);
+        let typeStr = file.type || "application/octet-stream";
+        if (typeStr.length > 28) typeStr = typeStr.substring(0, 25) + "…";
+        return `${file.name} (${sizeKB} KB, ${typeStr})`;
+    }
+
+    // Update status bar with file name
+    function updateFileStatusBar() {
+        if (selectedFile) {
+            fileNameDisplay.innerText = `📄 ${selectedFile.name}  |  ${(selectedFile.size / 1024).toFixed(1)} KB`;
+            fileNameDisplay.style.color = "#0ff";
+        } else {
+            fileNameDisplay.innerText = "No file attached";
+            fileNameDisplay.style.color = "#8bcbff";
+        }
+    }
+
+    // Reset file selection
+    function resetFileSelection() {
+        selectedFile = null;
+        fileInput.value = '';
+        updateFileStatusBar();
+    }
+
+    // Trigger file picker
+    filePickBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Handle file selection (any file)
+    fileInput.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            selectedFile = files[0];
+            updateFileStatusBar();
+            // IMPORTANT: No log added here. Only SEND button will create log entry.
+        } else {
+            if (selectedFile) resetFileSelection();
+        }
+    });
+
+    // Escape HTML to prevent injection
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // SEND TRANSMISSION: This is the ONLY thing that appears in the middle display.
+    function sendTransmission() {
+        const textMessage = messageInput.value.trim();
+        
+        // Must have either text or a file
+        if (!textMessage && !selectedFile) {
+            // Silent fail - no message shown in log (since only transmissions appear)
+            // But we provide a subtle console warning for debugging, nothing on UI.
+            return;
+        }
+
+        let transmissionContent = "";
+        let fileHtml = "";
+
+        // Process text part
+        if (textMessage) {
+            transmissionContent = `<span style="color:#e0f2fe;">“${escapeHtml(textMessage)}”</span>`;
+        }
+        
+        // Process file part (any file)
+        if (selectedFile) {
+            const fileNameRaw = selectedFile.name;
+            const fileSizeKB = (selectedFile.size / 1024).toFixed(1);
+            const fileTypeRaw = selectedFile.type || 'application/octet-stream';
+            
+            fileHtml = `
+                <div class="file-meta" style="margin-top: 6px;">
+                    <span>📎 ATTACHMENT</span> 
+                    <strong>${escapeHtml(fileNameRaw)}</strong> 
+                    (${fileSizeKB} KB) 
+                    <span style="color:#7ff;">[${escapeHtml(fileTypeRaw)}]</span>
+                </div>
+            `;
+            
+            if (textMessage) {
+                transmissionContent += ` <span style="color:#0ff;">+ file payload</span>`;
+            } else {
+                // Only file, no text
+                transmissionContent = `📦 FILE TRANSMISSION: <strong>${escapeHtml(fileNameRaw)}</strong> (${fileSizeKB} KB)`;
+            }
+        }
+        
+        // Combine final display content
+        let finalDisplay = transmissionContent;
+        if (fileHtml) {
+            finalDisplay += fileHtml;
+        }
+        
+        // THIS IS THE ONLY PLACE WHERE SOMETHING APPEARS IN THE MIDDLE DISPLAY.
+        // ONLY user's sent messages/files are shown.
+        addTransmissionLog("🚀", `OUTGOING: ${finalDisplay}`);
+        
+        // Clear text input after sending (file stays selected for convenience, but no extra logs)
+        messageInput.value = '';
+        
+        // Button feedback animation
+        sendBtn.style.transform = "scale(0.96)";
+        setTimeout(() => { sendBtn.style.transform = ""; }, 150);
+        
+        // Optionally, file remains staged for next send. No extra logs.
+    }
+
+    // Event listeners for sending
+    sendBtn.addEventListener('click', () => {
+        sendTransmission();
+    });
+
+    // Enter key to send
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendTransmission();
+        }
+    });
+
+    // Drag and drop support for any file (updates file selection silently, no log entries)
+    const inputPanel = document.querySelector('.input-panel');
+    inputPanel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        inputPanel.style.borderColor = "#ff66cc";
+        inputPanel.style.boxShadow = "0 0 10px magenta";
+    });
+    inputPanel.addEventListener('dragleave', (e) => {
+        inputPanel.style.borderColor = "rgba(0, 255, 255, 0.5)";
+        inputPanel.style.boxShadow = "none";
+    });
+    inputPanel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        inputPanel.style.borderColor = "rgba(0, 255, 255, 0.5)";
+        const dt = e.dataTransfer;
+        if (dt.files && dt.files.length > 0) {
+            const droppedFile = dt.files[0];
+            selectedFile = droppedFile;
+            updateFileStatusBar();
+            // Sync hidden input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(droppedFile);
+            fileInput.files = dataTransfer.files;
+            // NO LOG ENTRY ADDED HERE — only send button creates log.
+        }
+    });
+    
+    // Ensure the display area starts COMPLETELY EMPTY — no initial messages.
+    // The messageLog div has no child elements initially.
+</script>
+</body>
+</html>
