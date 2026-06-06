@@ -1,9 +1,0 @@
-<input type="file" id="f">
-<script>
-document.getElementById('f').onchange = async (e) => {
-    let fd = new FormData();
-    fd.append('file', e.target.files[0]);
-    await fetch('/upload', { method: 'POST', body: fd });
-    alert("আপলোড শেষ!");
-}
-</script>
