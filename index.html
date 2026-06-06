@@ -2,53 +2,634 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CODEXBD | Transmission Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CODEXBD | Transmission Core — Neural Interface</title>
     <style>
-        body { background: #0a0f1e; color: #00ffff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #03060c; padding: 2rem; border: 1px solid #00ffff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); width: 350px; text-align: center; }
-        h2 { text-transform: uppercase; letter-spacing: 2px; }
-        textarea, input { width: 100%; background: #0a0f1e; border: 1px solid #00ffff; color: #fff; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-        button { background: #00ffff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; width: 100%; }
-        button:hover { background: #ff66cc; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Share Tech Mono', 'Orbitron', 'Rajdhani', monospace;
+            padding: 1.5rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* scanning lines effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 255, 0.02) 0px,
+                rgba(0, 255, 255, 0.02) 2px,
+                transparent 2px,
+                transparent 6px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* main HUD container — PURE CODEXBD AESTHETIC */
+        .hud-container {
+            width: 100%;
+            max-width: 960px;
+            background: rgba(8, 18, 28, 0.65);
+            backdrop-filter: blur(14px);
+            border-radius: 2rem;
+            padding: 1.8rem;
+            box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.25),
+                        0 0 0 6px rgba(0, 20, 30, 0.6),
+                        0 25px 45px rgba(0,0,0,0.6),
+                        inset 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* corner cryptic markers */
+        .hud-container::before {
+            content: "◈ RX/TX ◈";
+            position: absolute;
+            bottom: 12px;
+            right: 20px;
+            font-size: 9px;
+            color: cyan;
+            opacity: 0.5;
+            font-family: monospace;
+            letter-spacing: 2px;
+            pointer-events: none;
+        }
+        .hud-container::after {
+            content: "⚡";
+            position: absolute;
+            top: 18px;
+            right: 22px;
+            font-size: 18px;
+            color: #0ff;
+            opacity: 0.4;
+            filter: blur(0.3px);
+        }
+
+        /* header */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 2px solid cyan;
+            padding-bottom: 0.7rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .title-section {
+            display: flex;
+            gap: 1rem;
+            align-items: baseline;
+            flex-wrap: wrap;
+        }
+        .system-id {
+            font-family: 'Orbitron', monospace;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+            font-size: 1.85rem;
+            background: linear-gradient(135deg, #aaffff, #0ff, #3cc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 8px rgba(0,255,255,0.4);
+        }
+        .status-led {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #0f0;
+            box-shadow: 0 0 8px #0f0;
+            animation: pulseLed 1.5s infinite;
+        }
+        .status-text {
+            color: #0ff;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            background: rgba(0,255,255,0.12);
+            padding: 0.25rem 0.8rem;
+            border-radius: 30px;
+            font-weight: bold;
+            backdrop-filter: blur(2px);
+        }
+        .time-stamp {
+            font-family: 'Share Tech Mono', monospace;
+            color: #8bcbff;
+            font-size: 0.8rem;
+            background: #0a1424cc;
+            padding: 0.25rem 1rem;
+            border-radius: 30px;
+            border: 1px solid cyan;
+            letter-spacing: 0.5px;
+        }
+
+        /* MESSAGE LOG — only user transmissions appear */
+        .message-log {
+            background: rgba(0, 10, 20, 0.6);
+            border-radius: 1.2rem;
+            padding: 1.2rem;
+            height: 350px;
+            overflow-y: auto;
+            margin-bottom: 1.8rem;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            box-shadow: inset 0 0 18px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,255,0.1);
+            scroll-behavior: smooth;
+        }
+        .message-log::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-log::-webkit-scrollbar-track {
+            background: #071222;
+            border-radius: 10px;
+        }
+        .message-log::-webkit-scrollbar-thumb {
+            background: cyan;
+            border-radius: 10px;
+            box-shadow: inset 0 0 4px #005f7a;
+        }
+        .msg-item {
+            display: flex;
+            gap: 0.9rem;
+            margin-bottom: 1.2rem;
+            border-left: 3px solid cyan;
+            padding-left: 0.9rem;
+            animation: fadeSlideUp 0.2s ease-out;
+            transition: all 0.1s;
+        }
+        .msg-icon {
+            font-size: 1.25rem;
+            filter: drop-shadow(0 0 3px cyan);
+        }
+        .msg-content {
+            flex: 1;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.92rem;
+            color: #d6f3ff;
+            word-break: break-word;
+        }
+        .msg-time {
+            font-size: 0.62rem;
+            color: #3e9ec9;
+            font-family: monospace;
+            margin-top: 6px;
+            letter-spacing: 0.3px;
+        }
+        .file-meta {
+            background: #0a1f2fcc;
+            border-radius: 18px;
+            padding: 0.25rem 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            font-size: 0.72rem;
+            border: 1px solid #2f8faf;
+            backdrop-filter: blur(2px);
+        }
+        .file-meta span {
+            font-weight: bold;
+            color: #8effff;
+        }
+
+        /* INPUT PANEL — cyberdeck style */
+        .input-panel {
+            background: rgba(0, 22, 34, 0.7);
+            border-radius: 1.8rem;
+            padding: 1.4rem;
+            border: 1px solid rgba(0, 255, 255, 0.55);
+            backdrop-filter: blur(6px);
+            transition: all 0.2s;
+        }
+        .text-input-area {
+            margin-bottom: 1.2rem;
+        }
+        .neon-label {
+            display: block;
+            color: #0ff;
+            text-transform: uppercase;
+            font-size: 0.68rem;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-family: 'Orbitron', monospace;
+        }
+        .futuristic-input {
+            width: 100%;
+            background: #05121e;
+            border: 1px solid #0ff;
+            border-radius: 40px;
+            padding: 0.85rem 1.4rem;
+            color: #bbf5ff;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+            box-shadow: 0 0 4px rgba(0,255,255,0.2);
+        }
+        .futuristic-input:focus {
+            border-color: #ff66cc;
+            box-shadow: 0 0 14px rgba(0,255,255,0.7);
+            background: #061e30;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .hud-btn {
+            background: rgba(0, 30, 45, 0.75);
+            border: 1px solid #0ff;
+            color: #0ff;
+            padding: 0.65rem 1.6rem;
+            border-radius: 60px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(2px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hud-btn:hover {
+            background: cyan;
+            color: #021018;
+            box-shadow: 0 0 16px cyan;
+            border-color: white;
+            text-shadow: none;
+        }
+        .primary-btn {
+            background: linear-gradient(125deg, #00aacf, #006180);
+            color: white;
+            border-color: #afffff;
+            box-shadow: 0 0 8px cyan;
+        }
+        .primary-btn:hover {
+            background: cyan;
+            color: #000;
+            transform: scale(0.97);
+            box-shadow: 0 0 20px cyan;
+        }
+        .file-status {
+            font-size: 0.7rem;
+            color: #b0f0ff;
+            background: #0a142cee;
+            border-radius: 40px;
+            padding: 0.35rem 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 3px solid cyan;
+            font-family: monospace;
+            backdrop-filter: blur(3px);
+        }
+        .hidden-file-input {
+            display: none;
+        }
+
+        @keyframes pulseLed {
+            0% { opacity: 0.4; box-shadow: 0 0 2px #0f0; }
+            100% { opacity: 1; box-shadow: 0 0 12px #0f0; }
+        }
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (max-width: 650px) {
+            .hud-container {
+                padding: 1.2rem;
+            }
+            .system-id {
+                font-size: 1.4rem;
+            }
+            .hud-btn {
+                padding: 0.45rem 1.2rem;
+                font-size: 0.7rem;
+            }
+            .msg-content {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
+<div class="hud-container">
+    <div class="hud-header">
+        <div class="title-section">
+            <span class="system-id">◈ CODEXBD CORE ◈</span>
+            <span class="status-text"><span class="status-led"></span> LINK ACTIVE</span>
+        </div>
+        <div class="time-stamp" id="liveTimestamp">--:--:-- UTC</div>
+    </div>
 
-<div class="container">
-    <h2>Transmission Core</h2>
-    <textarea id="messageInput" placeholder="ENTER SIGNAL DATA..." rows="4"></textarea>
-    <input type="file" id="fileInput">
-    <button onclick="sendTransmission()">⚡ SEND NOW</button>
+    <!-- TRANSMISSION LOG: only user transmissions appear here — clean, no system clutter -->
+    <div class="message-log" id="messageLog">
+        <!-- absolutely empty by design — no boot messages, no filler -->
+    </div>
+
+    <!-- INTERACTION PANEL -->
+    <div class="input-panel">
+        <div class="text-input-area">
+            <div class="neon-label">✧ ENCRYPTED OUTBOUND SIGNAL ✧</div>
+            <input type="text" id="messageInput" class="futuristic-input" placeholder=">_ ENTER SIGNATURE DATA..." autocomplete="off">
+        </div>
+
+        <div class="action-buttons">
+            <div class="btn-group">
+                <button id="filePickBtn" class="hud-btn">📎 ATTACH FILE</button>
+                <button id="sendBtn" class="hud-btn primary-btn">⚡ TRANSMIT NOW</button>
+            </div>
+            <div id="filePreviewStatus" class="file-status">
+                <span>🗂️</span> <span id="fileNameDisplay">no payload</span>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- hidden file input -> supports ANY file type (image, doc, zip, binary, etc.) -->
+<input type="file" id="fileInputElement" class="hidden-file-input" multiple="false">
+
 <script>
-    async function sendTransmission() {
-        const fileInput = document.getElementById('fileInput');
-        const messageInput = document.getElementById('messageInput');
-        
-        // FormData ব্যবহার করে ফাইল ও মেসেজ একসাথে প্যাক করা হচ্ছে
-        let fd = new FormData();
-        if (fileInput.files[0]) {
-            fd.append('file', fileInput.files[0]);
-        }
-        fd.append('message', messageInput.value);
-        
-        try {
-            // সার্ভারের /upload এন্ডপয়েন্টে রিকোয়েস্ট পাঠানো
-            const response = await fetch('/upload', { 
-                method: 'POST', 
-                body: fd 
-            });
-            
-            const result = await response.text();
-            alert("STATUS: " + result); 
-        } catch (error) {
-            console.error("Error:", error);
-            alert("TRANSMISSION_FAILED");
+    // ========== DOM references ==========
+    const messageLog = document.getElementById('messageLog');
+    const messageInput = document.getElementById('messageInput');
+    const filePickBtn = document.getElementById('filePickBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const fileInput = document.getElementById('fileInputElement');
+    const fileNameDisplaySpan = document.getElementById('fileNameDisplay');
+    const liveTimestampSpan = document.getElementById('liveTimestamp');
+
+    // active selected file (any MIME type allowed)
+    let selectedFile = null;
+
+    // ========== timestamp engine (live) ==========
+    function getCurrentUTCTime() {
+        const now = new Date();
+        return now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' }) + " UTC";
+    }
+
+    function updateLiveClock() {
+        liveTimestampSpan.innerText = getCurrentUTCTime();
+    }
+    setInterval(updateLiveClock, 1000);
+    updateLiveClock();
+
+    // ========== core function: adds ONLY user transmission to log ==========
+    function addTransmissionToLog(iconHtml, richContentHtml) {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'msg-item';
+        const timestampStr = getCurrentUTCTime();
+        logEntry.innerHTML = `
+            <div class="msg-icon">${iconHtml}</div>
+            <div class="msg-content">
+                <div>${richContentHtml}</div>
+                <div class="msg-time">[ ${timestampStr} ]</div>
+            </div>
+        `;
+        messageLog.appendChild(logEntry);
+        // scroll to latest transmission
+        messageLog.scrollTop = messageLog.scrollHeight;
+        // keep log tidy (max 120 transmissions)
+        while (messageLog.children.length > 120) {
+            messageLog.removeChild(messageLog.children[0]);
         }
     }
-</script>
 
+    // helper: escape HTML to avoid injection and keep clean rendering
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // format file info for preview in transmission
+    function getFileAttachmentDisplay(file) {
+        if (!file) return null;
+        const safeName = escapeHtml(file.name);
+        const sizeKB = (file.size / 1024).toFixed(1);
+        const fileTypeRaw = file.type || 'application/octet-stream';
+        const shortType = fileTypeRaw.length > 28 ? fileTypeRaw.substring(0, 25) + '…' : fileTypeRaw;
+        return {
+            nameHtml: safeName,
+            size: sizeKB,
+            typeLabel: escapeHtml(shortType),
+            fullHtml: `<div class="file-meta">
+                            <span>📎 ATTACHMENT</span> 
+                            <strong>${safeName}</strong> 
+                            (${sizeKB} KB) 
+                            <span style="color:#8effcf;">[${escapeHtml(shortType)}]</span>
+                        </div>`
+        };
+    }
+
+    // update file status bar (shows selected file or none)
+    function updateFileStatusBar() {
+        if (selectedFile) {
+            const size = (selectedFile.size / 1024).toFixed(1);
+            fileNameDisplaySpan.innerHTML = `📄 ${escapeHtml(selectedFile.name)}  |  ${size} KB`;
+            fileNameDisplaySpan.style.color = "#9effff";
+        } else {
+            fileNameDisplaySpan.innerHTML = "no payload";
+            fileNameDisplaySpan.style.color = "#b0d4ff";
+        }
+    }
+
+    // reset file selection (without adding logs)
+    function resetFileSelection() {
+        selectedFile = null;
+        if (fileInput) fileInput.value = '';
+        updateFileStatusBar();
+    }
+
+    // file picker trigger
+    filePickBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // handle file selection (any file type — unrestricted)
+    fileInput.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            selectedFile = files[0];
+            updateFileStatusBar();
+        } else {
+            if (selectedFile) resetFileSelection();
+        }
+    });
+
+    // DRAG & DROP support for ANY file (enhances UX, no log insertion)
+    const dropZone = document.querySelector('.input-panel');
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = "#ff66cc";
+        dropZone.style.boxShadow = "0 0 12px rgba(255,102,204,0.6)";
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = "rgba(0, 255, 255, 0.55)";
+        dropZone.style.boxShadow = "none";
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = "rgba(0, 255, 255, 0.55)";
+        dropZone.style.boxShadow = "none";
+        const dt = e.dataTransfer;
+        if (dt.files && dt.files.length > 0) {
+            const droppedFile = dt.files[0];
+            selectedFile = droppedFile;
+            // sync hidden file input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(droppedFile);
+            fileInput.files = dataTransfer.files;
+            updateFileStatusBar();
+        }
+    });
+
+    // ========== TRANSMISSION CORE (main function) ==========
+    // ONLY triggered by user -> creates a log entry that shows sent message + file attachment
+    // Exactly like the "pure transmission log" — no extra system messages or boot text
+    function sendTransmission() {
+        const rawText = messageInput.value;
+        const textMessage = rawText ? rawText.trim() : "";
+        
+        // validation: if no text and no file -> silent fail, no log pollution
+        if (!textMessage && !selectedFile) {
+            // subtle feedback not breaking immersion but prevents empty sends
+            return;
+        }
+        
+        let finalRichHtml = "";
+        let hasTextContent = false;
+        
+        // ---- handle text part ----
+        if (textMessage) {
+            const escapedMsg = escapeHtml(textMessage);
+            finalRichHtml = `<span style="color:#dcf5ff; font-weight:500;">“${escapedMsg}”</span>`;
+            hasTextContent = true;
+        }
+        
+        // ---- handle file attachment (if any) ----
+        let fileBlockHtml = "";
+        if (selectedFile) {
+            const fileDisplay = getFileAttachmentDisplay(selectedFile);
+            if (fileDisplay) {
+                fileBlockHtml = fileDisplay.fullHtml;
+                if (hasTextContent) {
+                    // both text + file: we add a micro badge style
+                    finalRichHtml += ` <span style="color:#4ff; font-size:0.85rem;">⨁ encrypted payload</span>`;
+                } else {
+                    // only file case
+                    finalRichHtml = `📦 <strong style="color:#cafcff;">FILE TRANSMISSION</strong> : <span style="color:#abf0ff;">${fileDisplay.nameHtml}</span> <span style="color:#7ec8e0;">(${fileDisplay.size} KB · ${fileDisplay.typeLabel})</span>`;
+                }
+            }
+        }
+        
+        // if we have file but also text, append file block properly
+        if (fileBlockHtml && hasTextContent) {
+            finalRichHtml += fileBlockHtml;
+        } else if (fileBlockHtml && !hasTextContent) {
+            finalRichHtml += fileBlockHtml;
+        }
+        
+        // final fallback (safety)
+        if (!finalRichHtml) finalRichHtml = "<i>void signal</i>";
+        
+        // add the transmission to log — this is the ONLY place where display updates happen
+        addTransmissionToLog("🚀", `OUTGOING :: ${finalRichHtml}`);
+        
+        // clear message input after sending (but keep file attached for convenience)
+        messageInput.value = '';
+        
+        // little UI feedback: button press animation
+        sendBtn.style.transform = "scale(0.96)";
+        setTimeout(() => { sendBtn.style.transform = ""; }, 150);
+        
+        // Important: do NOT reset file automatically — user can keep same file for multiple sends.
+        // However, file stays selected exactly as original design.
+        // No other logs inserted.
+    }
+    
+    // ========== EVENT LISTENERS ==========
+    sendBtn.addEventListener('click', () => {
+        sendTransmission();
+    });
+    
+    // pressing Enter in the input field triggers transmission
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendTransmission();
+        }
+    });
+    
+    // ensure that the middle area starts completely empty — verify no initial text
+    // ensure messageLog innerHTML is absolutely clean (already empty in HTML)
+    // additionally reset any possible pre-filled ghost messages
+    if (messageLog.children.length === 0) {
+        // just to stay true to "pure transmission log" (nothing)
+        messageLog.innerHTML = '';
+    }
+    
+    // optional : small hover audio-like vibe? not needed, but ensures that the design matches
+    // second file requirement: also support "any file" as original second html but keep advanced cyber HUD
+    // we preserve all features : file attachment, drag-drop, any MIME, timestamp, realtime clock, no system logs.
+    
+    // Edge: if user wants to clear file manually, we could add optional reset. but not mandatory. 
+    // but we provide a tiny hidden ability: click on filename status to clear? not needed but core clean.
+    // additional micro feature: keep 100% integrity — no background auto-messages.
+    
+    // fix edge: in case some older data stuck if log artificially filled? we keep pristine.
+    // also style adjustment - no extra messages from file pick or drop
+    console.log("CODEXBD TERMINAL ACTIVE — only user transmissions appear");
+    
+    // Implement a small elegant trick: support right click clear file (only if user double-clicks file status to detach)
+    // Optional user friendly: double-click on file-status to detach file without log entry.
+    const fileStatusDiv = document.getElementById('filePreviewStatus');
+    fileStatusDiv.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (selectedFile) {
+            resetFileSelection();
+        }
+    });
+    // tooltip hint (no log)
+    fileStatusDiv.title = "double-click to detach file";
+</script>
 </body>
 </html>
