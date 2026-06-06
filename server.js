@@ -7,44 +7,45 @@ const path = require('path');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-// এনভায়রনমেন্ট ভ্যারিয়েবল চেক করা (এরর এড়ানোর জন্য)
-if (!process.env.BOT_TOKEN || !process.env.CHAT_ID) {
-    console.error("Error: BOT_TOKEN or CHAT_ID is missing!");
-}
+// আপনার দেওয়া টোকেন ও চ্যাট আইডি
+const BOT_TOKEN = '8725243106:AAFNB3TMkOk-q4KO_z7QL_tvU1FxhoF7Dbk';
+const CHAT_ID = '6274855215';
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
+const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
-// সার্ভার স্টার্ট হওয়ার সময় uploads ফোল্ডার আছে কি না নিশ্চিত করা
+// uploads ফোল্ডার নিশ্চিত করা
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
 
 app.use(express.static(__dirname));
+app.use(express.urlencoded({ extended: true }));
 
+// ফাইল এবং টেক্সট হ্যান্ডেল করার রুট
 app.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        const userMessage = req.body.message || "কোনো ক্যাপশন নেই";
-        
-        if (!req.file) {
-            await bot.sendMessage(process.env.CHAT_ID, `CODEXBD_SIGNAL:\n${userMessage}`);
-            return res.send("মেসেজ সফলভাবে পাঠানো হয়েছে!");
+        const userMessage = req.body.message || "কোনো টেক্সট নেই";
+        const caption = `CODEXBD_SIGNAL:\n${userMessage}`;
+
+        if (req.file) {
+            // ফাইল থাকলে ফাইল পাঠানো
+            await bot.sendDocument(CHAT_ID, req.file.path, {
+                caption: caption
+            }, {
+                filename: req.file.originalname
+            });
+            // ফাইল মুছে ফেলা
+            fs.unlinkSync(req.file.path);
+            res.send("ফাইল এবং মেসেজ পাঠানো হয়েছে!");
+        } else {
+            // ফাইল না থাকলে শুধু মেসেজ পাঠানো
+            await bot.sendMessage(CHAT_ID, caption);
+            res.send("মেসেজ পাঠানো হয়েছে!");
         }
-
-        // ফাইল পাঠানো
-        await bot.sendDocument(process.env.CHAT_ID, req.file.path, {
-            caption: `CODEXBD_SIGNAL:\n${userMessage}`,
-        }, {
-            filename: req.file.originalname
-        });
-
-        // ফাইল পাঠানোর পর মুছে ফেলা
-        fs.unlinkSync(req.file.path);
-        
-        res.send("ফাইল এবং মেসেজ সফলভাবে পাঠানো হয়েছে!");
     } catch (error) {
-        console.error("Error sending to Telegram:", error);
-        res.status(500).send("সার্ভার এরর: " + error.message);
+        console.error(error);
+        res.status(500).send("এরর হয়েছে: " + error.message);
     }
 });
 
