@@ -5,39 +5,34 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+// ফাইল আপলোডের জন্য স্টোরেজ সেটআপ
 const upload = multer({ dest: 'uploads/' });
 
-// এনভায়রনমেন্ট ভ্যারিয়েবল থেকে টোকেন এবং আইডি নেওয়া
+// আপনার টেলিগ্রাম বট টোকেন
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
 
-// পাবলিক ফোল্ডার সেটআপ
 app.use(express.static(path.join(__dirname, 'public')));
 
-// রুট ইউআরএল-এ index.html পাঠানো
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ফাইল আপলোড হ্যান্ডেল করা
 app.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("ফাইল পাওয়া যায়নি");
+        if (!req.file) return res.status(400).send("কোনো ফাইল পাওয়া যায়নি।");
 
-        // টেলিগ্রামে ফাইল পাঠানো
-        await bot.sendDocument(process.env.CHAT_ID, req.file.path);
+        // টেলিগ্রামে পাঠানোর জন্য অপশনস (যা ফাইলের নাম ও ফরম্যাট ঠিক রাখবে)
+        const options = {
+            caption: `নতুন ফাইল এসেছে: ${req.file.originalname}`
+        };
 
-        // পাঠানোর পর সার্ভারের স্টোরেজ থেকে ফাইল মুছে ফেলা
+        // ফাইল পাঠানো
+        await bot.sendDocument(process.env.CHAT_ID, req.file.path, {}, options);
+
+        // পাঠানোর পর ফাইলটি সার্ভার থেকে মুছে ফেলা
         fs.unlinkSync(req.file.path);
         
-        res.send("ফাইল সফলভাবে আপলোড হয়েছে!");
+        res.send("ফাইল সফলভাবে আপলোড হয়েছে এবং টেলিগ্রামে পাঠানো হয়েছে!");
     } catch (error) {
         console.error(error);
-        res.status(500).send("সার্ভারে সমস্যা হয়েছে");
+        res.status(500).send("সার্ভার এরর!");
     }
 });
 
-// রেন্ডারের পোর্টে সার্ভার চালু করা
-app.listen(process.env.PORT || 3000, () => {
-    console.log("সার্ভার চলছে পোর্ট ৩০০০ এ...");
-});
-
+app.listen(process.env.PORT || 3000);
